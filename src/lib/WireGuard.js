@@ -20,6 +20,7 @@ const {
   WG_DEFAULT_ADDRESS,
   WG_PERSISTENT_KEEPALIVE,
   WG_ALLOWED_IPS,
+  WG_IPROUTE_TABLE,
   WG_PRE_UP,
   WG_POST_UP,
   WG_PRE_DOWN,
@@ -79,10 +80,6 @@ module.exports = class WireGuard {
 
         throw err;
       });
-      // await Util.exec(`iptables -t nat -A POSTROUTING -s ${WG_DEFAULT_ADDRESS.replace('x', '0')}/24 -o ' + WG_DEVICE + ' -j MASQUERADE`);
-      // await Util.exec('iptables -A INPUT -p udp -m udp --dport 51820 -j ACCEPT');
-      // await Util.exec('iptables -A FORWARD -i wg0 -j ACCEPT');
-      // await Util.exec('iptables -A FORWARD -o wg0 -j ACCEPT');
       await this.__syncConfig();
     }
 
@@ -104,6 +101,7 @@ module.exports = class WireGuard {
 [Interface]
 PrivateKey = ${config.server.privateKey}
 Address = ${config.server.address}/24
+${WG_IPROUTE_TABLE ? `Table = ${WG_IPROUTE_TABLE}\n` : ''}\
 ListenPort = ${WG_PORT}
 PreUp = ${WG_PRE_UP}
 PostUp = ${WG_POST_UP}
