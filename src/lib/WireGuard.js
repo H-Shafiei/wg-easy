@@ -48,13 +48,23 @@ module.exports = class WireGuard {
         const publicKey = await Util.exec(`echo ${privateKey} | wg pubkey`, {
           log: 'echo ***hidden*** | wg pubkey',
         });
-        const address = WG_DEFAULT_ADDRESS.replace('x', '1');
+
+        let [address, prefixLength] = WG_DEFAULT_ADDRESS.split('/');
+        prefixLength = parseInt(prefixLength, 10);
+
+        if (prefixLength < 0 || prefixLength > 32) {
+          throw new Error('Invalid CIDR prefix length: must be between 0 and 32.');
+        }
+        if (!Util.isValidIPv4(address)) {
+          throw new Error(`Invalid server ip address: ${address}`)
+        }
 
         config = {
           server: {
             privateKey,
             publicKey,
             address,
+            prefixLength,
           },
           clients: {},
         };
@@ -100,7 +110,7 @@ module.exports = class WireGuard {
 # Server
 [Interface]
 PrivateKey = ${config.server.privateKey}
-Address = ${config.server.address}/24
+Address = ${config.server.address}/${config.server.prefixLength}
 ${WG_IPROUTE_TABLE ? `Table = ${WG_IPROUTE_TABLE}\n` : ''}\
 ListenPort = ${WG_PORT}
 PreUp = ${WG_PRE_UP}
@@ -213,7 +223,7 @@ ${client.preSharedKey ? `PresharedKey = ${client.preSharedKey}\n` : ''
     return `
 [Interface]
 PrivateKey = ${client.privateKey ? `${client.privateKey}` : 'REPLACE_ME'}
-Address = ${client.address}/24
+Address = ${client.address}/${config.server.prefixLength}
 ${WG_DEFAULT_DNS ? `DNS = ${WG_DEFAULT_DNS}\n` : ''}\
 ${WG_MTU ? `MTU = ${WG_MTU}\n` : ''}\
 
@@ -247,17 +257,7 @@ Endpoint = ${WG_HOST}:${WG_CONFIG_PORT}`;
     const preSharedKey = await Util.exec('wg genpsk');
 
     // Calculate next IP
-    let address;
-    for (let i = 2; i < 255; i++) {
-      const client = Object.values(config.clients).find((client) => {
-        return client.address === WG_DEFAULT_ADDRESS.replace('x', i);
-      });
-
-      if (!client) {
-        address = WG_DEFAULT_ADDRESS.replace('x', i);
-        break;
-      }
-    }
+    const address = Util.findSmallestAvailableIp(config.server.address, config.server.prefixLength, Object.values(config.clients).map(client => client.address))
 
     if (!address) {
       throw new Error('Maximum number of clients reached.');

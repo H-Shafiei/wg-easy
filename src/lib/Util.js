@@ -77,4 +77,31 @@ module.exports = class Util {
     });
   }
 
+  static findSmallestAvailableIp(serverIp, prefixLength, takenIps) {
+
+    const ipToNumber = (ip) => {
+      return ip.split('.').reduce((acc, part) => (acc << 8) + parseInt(part, 10), 0);
+    };
+    
+    const numberToIp = (num) => {
+      return [num >>> 24, (num >>> 16) & 255, (num >>> 8) & 255, num & 255].join('.');
+    };
+
+    const serverIpNumber = ipToNumber(serverIp);
+    const mask = ~(2 ** (32 - prefixLength) - 1);
+    const rangeStart = serverIpNumber & mask;
+    const rangeEnd = rangeStart | ~mask;
+
+    const takenIpNumbers = new Set(takenIps.map(ipToNumber));
+    takenIpNumbers.add(serverIpNumber)
+    
+    for (let ip = rangeStart; ip <= rangeEnd; ip++) {
+      if (!takenIpNumbers.has(ip)) {
+        return numberToIp(ip);
+      }
+    }
+
+    return null; // No available IPs
+  };
+
 };
