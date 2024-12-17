@@ -1,6 +1,6 @@
 # As a workaround we have to build on nodejs 18
 # nodejs 20 hangs on build with armv6/armv7
-FROM docker.io/library/node:18-alpine AS build_stage
+FROM public.ecr.aws/docker/library/node:18-alpine AS build_stage
 
 # Update npm to latest
 RUN npm install -g npm@latest
@@ -18,7 +18,7 @@ RUN wget https://github.com/wangyu-/udp2raw-tunnel/releases/download/20230206.0/
 
 # Copy build result to a new image.
 # This saves a lot of disk space.
-FROM docker.io/library/node:lts-alpine
+FROM public.ecr.aws/docker/library/node:18-alpine
 HEALTHCHECK CMD /usr/bin/timeout 5s /bin/sh -c "/usr/bin/wg show | /bin/grep -q interface || exit 1" --interval=1m --timeout=5s --retries=3
 COPY --from=build_stage /app /app
 
